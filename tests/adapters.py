@@ -8,6 +8,17 @@ from jaxtyping import Float, Int
 import numpy.typing as npt
 import torch
 from torch import Tensor
+from cs336_basics.linear_module import Linear
+from cs336_basics.embedding_module import Embedding
+from cs336_basics.rms_norm_module import RMSNorm
+from cs336_basics.swiglu_ffn_module import SwiGLUFFN
+from cs336_basics.utils import (
+    softmax,
+    scaled_dot_product_attention,
+    cross_entropy_loss
+)
+from cs336_basics.multi_head_sa_module import MultiHeadSA
+from cs336_basics.bpe_tokenization import train_bpe
 
 
 def run_linear(
@@ -29,7 +40,9 @@ def run_linear(
         Float[Tensor, "... d_out"]: The transformed output of your linear module.
     """
 
-    raise NotImplementedError
+    linear_module = Linear(d_in, d_out)
+    linear_module.load_state_dict({'W': weights})
+    return linear_module(in_features)
 
 
 def run_embedding(
@@ -51,7 +64,9 @@ def run_embedding(
         Float[Tensor, "... d_model"]: Batch of embeddings returned by your Embedding layer.
     """
 
-    raise NotImplementedError
+    embedding_module = Embedding(vocab_size, d_model)
+    embedding_module.load_state_dict({'E': weights})
+    return embedding_module(token_ids)
 
 
 def run_swiglu(
@@ -76,14 +91,11 @@ def run_swiglu(
     Returns:
         Float[Tensor, "... d_model"]: Output embeddings of the same shape as the input embeddings.
     """
-    # Example:
-    # If your state dict keys match, you can use `load_state_dict()`
-    # swiglu.load_state_dict(weights)
-    # You can also manually assign the weights
-    # swiglu.w1.weight.data = w1_weight
-    # swiglu.w2.weight.data = w2_weight
-    # swiglu.w3.weight.data = w3_weight
-    raise NotImplementedError
+    swiglu = SwiGLUFFN(d_model)
+    swiglu.linear1.load_state_dict({'W': w1_weight})
+    swiglu.linear2.load_state_dict({'W': w3_weight})
+    swiglu.linear3.load_state_dict({'W': w2_weight})
+    return swiglu(in_features)
 
 
 def run_scaled_dot_product_attention(
@@ -104,7 +116,7 @@ def run_scaled_dot_product_attention(
     Returns:
         Float[Tensor, " ... queries d_v"]: Output of SDPA
     """
-    raise NotImplementedError
+    return scaled_dot_product_attention(K, Q, V, mask)
 
 
 def run_multihead_self_attention(
@@ -138,7 +150,12 @@ def run_multihead_self_attention(
         Float[Tensor, " ... sequence_length d_out"]: Tensor with the output of running your optimized, batched multi-headed attention
         implementation with the given QKV projection weights and input features.
     """
-    raise NotImplementedError
+    mhsa = MultiHeadSA(d_model, num_heads)
+    mhsa.Q_proj.load_state_dict({"W": q_proj_weight})
+    mhsa.K_proj.load_state_dict({"W": k_proj_weight})
+    mhsa.V_proj.load_state_dict({"W": v_proj_weight})
+    mhsa.O_proj.load_state_dict({"W": o_proj_weight})
+    return mhsa(in_features)
 
 
 def run_multihead_self_attention_with_rope(
@@ -378,8 +395,11 @@ def run_rmsnorm(
         Float[Tensor,"... d_model"]: Tensor of with the same shape as `in_features` with the output of running
         RMSNorm of the `in_features`.
     """
-    raise NotImplementedError
 
+    rmsnorm_module = RMSNorm(d_model)
+    rmsnorm_module.load_state_dict({'G': weights})
+    return rmsnorm_module(in_features)
+    
 
 def run_silu(in_features: Float[Tensor, " ..."]) -> Float[Tensor, " ..."]:
     """Given a tensor of inputs, return the output of applying SiLU
@@ -431,7 +451,7 @@ def run_softmax(in_features: Float[Tensor, " ..."], dim: int) -> Float[Tensor, "
         Float[Tensor, "..."]: Tensor of with the same shape as `in_features` with the output of
         softmax normalizing the specified `dim`.
     """
-    raise NotImplementedError
+    return softmax(in_features, dim)
 
 
 def run_cross_entropy(
@@ -449,8 +469,7 @@ def run_cross_entropy(
     Returns:
         Float[Tensor, ""]: The average cross-entropy loss across examples.
     """
-    raise NotImplementedError
-
+    return cross_entropy_loss(inputs, targets)
 
 def run_gradient_clipping(parameters: Iterable[torch.nn.Parameter], max_l2_norm: float) -> None:
     """Given a set of parameters, clip their combined gradients to have l2 norm at most max_l2_norm.
@@ -589,4 +608,4 @@ def run_train_bpe(
                 representing that <token1> was merged with <token2>.
                 Merges are ordered by order of creation.
     """
-    raise NotImplementedError
+    return train_bpe(input_path, vocab_size, special_tokens)

@@ -161,3 +161,10 @@ cython_debug/
 
 .ruff_cache/
 *.zip
+
+# Project specific
+data/
+cs336_basics/output/
+einops_basics/
+.claude/
+.DS_Store
